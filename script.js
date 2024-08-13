@@ -1,28 +1,60 @@
-document.getElementById('fitnessForm').addEventListener('submit', function(event) {
+// Handle Login
+document.getElementById('loginForm').addEventListener('submit', function(event) {
     event.preventDefault(); 
-    // Collect form data
-    const goal = document.getElementById('goal').value;
-    const bodyType = document.getElementById('bodyType').value;
-    const weight = document.getElementById('weight').value;
-    const exerciseDays = document.getElementById('exerciseDays').value;
-    const age = document.getElementById('age').value;
-    const gender = document.getElementById('gender').value;
-    const fitnessLevel = document.getElementById('fitnessLevel').value;
 
-    const responseDiv = document.getElementById('response');
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
 
-   
-    responseDiv.innerHTML = `
-        <h2>Thank you for submitting your information!</h2>
-        <p><strong>Fitness Goal:</strong> ${goal}</p>
-        <p><strong>Desired Body Type:</strong> ${bodyType}</p>
-        <p><strong>Desired Weight (lbs):</strong> ${weight}</p>
-        <p><strong>Exercise Days per Week:</strong> ${exerciseDays}</p>
-        <p><strong>Desired Age:</strong> ${age}</p>
-        <p><strong>Gender:</strong> ${gender}</p>
-        <p><strong>Current Fitness Level:</strong> ${fitnessLevel}</p>
-    `;
-
-    // Clear the form fields after submission
-    document.getElementById('fitnessForm').reset();
+    fetch('/login', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+    })
+    .then(response => {
+        if (response.ok) {
+            document.getElementById('loginResponse').innerText = 'Logged in successfully';
+            document.getElementById('fitnessFormDiv').style.display = 'block'; // Show the fitness form
+            document.getElementById('loginDiv').style.display = 'none'; // Hide the login form
+            document.getElementById('registerDiv').style.display = 'none'; // Hide the registration form
+        } else {
+            return response.json();
+        }
+    })
+    .then(data => {
+        if (data) {
+            document.getElementById('loginResponse').innerText = data.message;
+        }
+    });
 });
+
+// Handle Registration
+document.getElementById('registerForm').addEventListener('submit', function(event) {
+    event.preventDefault(); 
+
+    const username = document.getElementById('registerUsername').value;
+    const password = document.getElementById('registerPassword').value;
+
+    fetch('/register', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username, password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('registerResponse').innerText = data.message;
+        if (data.success) {
+            document.getElementById('loginResponse').innerText = 'You can now log in with your new account.';
+            document.getElementById('registerDiv').style.display = 'none'; // Hide the registration form
+            document.getElementById('loginDiv').style.display = 'block'; // Show the login form
+        }
+    });
+});
+
+// Show Registration Form
+document.getElementById('registerLink').addEventListener('click', function(event) {
+    event.preventDefault();
+    document.getElementById('loginDiv').style.display = 'none'; // Hide
