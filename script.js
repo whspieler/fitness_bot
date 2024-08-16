@@ -57,4 +57,6 @@ document.getElementById('registerForm').addEventListener('submit', function(even
 // Show Registration Form
 document.getElementById('registerLink').addEventListener('click', function(event) {
     event.preventDefault();
-    document.getElementById('loginDiv').style.display = 'none'; // Hide
+    document.getElementById('loginDiv').style.display = 'none'; // Hide the login form
+    document.getElementById('registerDiv').style.display = 'block'; // Show the registration form
+});
