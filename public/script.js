@@ -1,3 +1,4 @@
+// Handle login form submission
 document.getElementById('loginForm').addEventListener('submit', function(event) {
     event.preventDefault(); 
 
@@ -25,6 +26,18 @@ document.getElementById('loginForm').addEventListener('submit', function(event) 
             document.getElementById('fitnessFormDiv').style.display = 'block';
             document.getElementById('loginDiv').style.display = 'none';
             document.getElementById('registerDiv').style.display = 'none';
+            document.getElementById('intro').style.display = 'none';
+
+            // Prefill fitness form with existing data
+            if (data.fitnessData) {
+                document.getElementById('goal').value = data.fitnessData.goal || '';
+                document.getElementById('bodyType').value = data.fitnessData.bodyType || '';
+                document.getElementById('weight').value = data.fitnessData.weight || '';
+                document.getElementById('exerciseDays').value = data.fitnessData.exerciseDays || '';
+                document.getElementById('age').value = data.fitnessData.age || '';
+                document.getElementById('gender').value = data.fitnessData.gender || '';
+                document.getElementById('fitnessLevel').value = data.fitnessData.fitnessLevel || '';
+            }
         }
     })
     .catch(error => {
@@ -32,6 +45,7 @@ document.getElementById('loginForm').addEventListener('submit', function(event) 
     });
 });
 
+// Handle registration form submission
 document.getElementById('registerForm').addEventListener('submit', function(event) {
     event.preventDefault(); 
 
@@ -59,8 +73,37 @@ document.getElementById('registerForm').addEventListener('submit', function(even
     });
 });
 
+// Handle register link click to switch to registration form
 document.getElementById('registerLink').addEventListener('click', function(event) {
     event.preventDefault();
     document.getElementById('loginDiv').style.display = 'none';
     document.getElementById('registerDiv').style.display = 'block';
+});
+
+// Handle fitness form submission
+document.getElementById('fitnessForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    const goal = document.getElementById('goal').value;
+    const bodyType = document.getElementById('bodyType').value;
+    const weight = document.getElementById('weight').value;
+    const exerciseDays = document.getElementById('exerciseDays').value;
+    const age = document.getElementById('age').value;
+    const gender = document.getElementById('gender').value;
+    const fitnessLevel = document.getElementById('fitnessLevel').value;
+
+    fetch('http://localhost:8080/saveFitnessData', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ goal, bodyType, weight, exerciseDays, age, gender, fitnessLevel })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('response').innerText = data.message;
+    })
+    .catch(error => {
+        document.getElementById('response').innerText = 'Error: ' + error.message;
+    });
 });
