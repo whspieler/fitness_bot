@@ -102,8 +102,52 @@ document.getElementById('fitnessForm').addEventListener('submit', function(event
     .then(response => response.json())
     .then(data => {
         document.getElementById('response').innerText = data.message;
+
+        // Automatically get diet plan, workout routine, etc. after form submission
+        if (data.success) {
+            getDietPlan(goal, weight, gender, age, fitnessLevel);
+            getWorkoutRoutine(bodyType, exerciseDays, fitnessLevel);
+        }
     })
     .catch(error => {
         document.getElementById('response').innerText = 'Error: ' + error.message;
     });
 });
+
+function getDietPlan(goal, weight, gender, age, fitnessLevel) {
+    const query = `${goal} diet plan for ${gender}, ${age} years old, ${weight} lbs, ${fitnessLevel} fitness level`;
+
+    fetch('http://localhost:8080/getDietPlan', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('response').innerText += `\nDiet Plan: ${data.dietPlan}`;
+    })
+    .catch(error => {
+        document.getElementById('response').innerText += '\nError fetching diet plan: ' + error.message;
+    });
+}
+
+function getWorkoutRoutine(bodyType, exerciseDays, fitnessLevel) {
+    const query = `workout routine for ${bodyType}, ${exerciseDays} days per week, ${fitnessLevel} fitness level`;
+
+    fetch('http://localhost:8080/getWorkoutRoutine', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('response').innerText += `\nWorkout Routine: ${data.workoutRoutine}`;
+    })
+    .catch(error => {
+        document.getElementById('response').innerText += '\nError fetching workout routine: ' + error.message;
+    });
+}
