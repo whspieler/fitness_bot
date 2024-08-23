@@ -1,3 +1,11 @@
+function toggleContent(id) {
+    var content = document.getElementById(id);
+    if (content.style.display === "none" || content.style.display === "") {
+        content.style.display = "block";
+    } else {
+        content.style.display = "none";
+    }
+}
 // Handle login form submission
 document.getElementById('loginForm').addEventListener('submit', function(event) {
     event.preventDefault(); 
@@ -101,12 +109,16 @@ document.getElementById('fitnessForm').addEventListener('submit', function(event
     })
     .then(response => response.json())
     .then(data => {
-        document.getElementById('response').innerText = data.message;
-
-        // Automatically get diet plan, workout routine, etc. after form submission
         if (data.success) {
+            document.getElementById('fitnessFormDiv').style.display = 'none';
+            document.getElementById('planPreviews').style.display = 'block';
+
+            // Automatically get diet plan, workout routine, etc.
             getDietPlan(goal, weight, gender, age, fitnessLevel);
             getWorkoutRoutine(bodyType, exerciseDays, fitnessLevel);
+            trackProgress(goal, weight, gender, age, fitnessLevel);
+        } else {
+            document.getElementById('response').innerText = 'Error: ' + data.message;
         }
     })
     .catch(error => {
@@ -126,10 +138,10 @@ function getDietPlan(goal, weight, gender, age, fitnessLevel) {
     })
     .then(response => response.json())
     .then(data => {
-        document.getElementById('response').innerText += `\nDiet Plan: ${data.dietPlan}`;
+        document.getElementById('dietPlanText').innerText = data.dietPlan || 'Diet plan not available.';
     })
     .catch(error => {
-        document.getElementById('response').innerText += '\nError fetching diet plan: ' + error.message;
+        document.getElementById('dietPlanText').innerText = 'Error fetching diet plan: ' + error.message;
     });
 }
 
@@ -145,9 +157,54 @@ function getWorkoutRoutine(bodyType, exerciseDays, fitnessLevel) {
     })
     .then(response => response.json())
     .then(data => {
-        document.getElementById('response').innerText += `\nWorkout Routine: ${data.workoutRoutine}`;
+        document.getElementById('fitnessPlanText').innerText = data.workoutRoutine || 'Workout routine not available.';
     })
     .catch(error => {
-        document.getElementById('response').innerText += '\nError fetching workout routine: ' + error.message;
+        document.getElementById('fitnessPlanText').innerText = 'Error fetching workout routine: ' + error.message;
     });
+}
+
+function trackProgress(goal, weight, gender, age, fitnessLevel) {
+    fetch('http://localhost:8080/trackProgress', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ goal, weight, gender, age, fitnessLevel })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('progressTrackingText').innerText = data.progress || 'No progress data available.';
+    })
+    .catch(error => {
+        document.getElementById('progressTrackingText').innerText = 'Error fetching progress: ' + error.message;
+    });
+}
+
+function viewPlan(planType) {
+    const planTitle = document.getElementById('planTitle');
+    const planContent = document.getElementById('planContent');
+
+    switch(planType) {
+        case 'fitnessPlan':
+            planTitle.innerText = 'Fitness Plan';
+            planContent.innerText = document.getElementById('fitnessPlanText').innerText;
+            break;
+        case 'dietPlan':
+            planTitle.innerText = 'Diet Plan';
+            planContent.innerText = document.getElementById('dietPlanText').innerText;
+            break;
+        case 'progressTracking':
+            planTitle.innerText = 'Progress Tracking';
+            planContent.innerText = document.getElementById('progressTrackingText').innerText;
+            break;
+    }
+
+    document.getElementById('planPreviews').style.display = 'none';
+    document.getElementById('planDetails').style.display = 'block';
+}
+
+function backToPreviews() {
+    document.getElementById('planDetails').style.display = 'none';
+    document.getElementById('planPreviews').style.display = 'block';
 }

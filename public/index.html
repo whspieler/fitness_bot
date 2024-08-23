@@ -83,7 +83,35 @@
 
                 <button type="submit">Submit</button>
             </form>
-            <div id="response"></div>
+        </div>
+
+        <!-- Plan Previews -->
+        <div id="planPreviews" style="display:none;">
+            <div class="plan-preview">
+                <h3>Fitness Plan</h3>
+                <button onclick="toggleContent('fitnessPlanText')">Toggle Fitness Plan</button>
+                <p id="fitnessPlanText" style="display:none;">Your personalized fitness plan will appear here...</p>
+                <button class="view-button" onclick="viewPlan('fitnessPlan')">View Full Plan</button>
+            </div>
+            <div class="plan-preview">
+                <h3>Diet Plan</h3>
+                <button onclick="toggleContent('dietPlanText')">Toggle Diet Plan</button>
+                <p id="dietPlanText" style="display:none;">Your personalized diet plan will appear here...</p>
+                <button class="view-button" onclick="viewPlan('dietPlan')">View Full Plan</button>
+            </div>
+            <div class="plan-preview">
+                <h3>Progress Tracking</h3>
+                <button onclick="toggleContent('progressTrackingText')">Toggle Progress Tracking</button>
+                <p id="progressTrackingText" style="display:none;">Your progress tracking data will appear here...</p>
+                <button class="view-button" onclick="viewPlan('progressTracking')">View Progress</button>
+            </div>
+        </div>
+
+        <!-- Plan Details -->
+        <div id="planDetails" style="display:none;">
+            <h2 id="planTitle"></h2>
+            <p id="planContent"></p>
+            <button class="back-button" onclick="backToPreviews()">Back to Previews</button>
         </div>
     </div>
     <script src="script.js"></script>
