@@ -40,13 +40,19 @@ document.getElementById('loginForm').addEventListener('submit', function(event) 
                 // If fitness data exists, show plan previews directly
                 document.getElementById('planPreviews').style.display = 'block';
 
-                document.getElementById('fitnessPlanText').innerText = 'Loading...';
-                document.getElementById('dietPlanText').innerText = 'Loading...';
-                document.getElementById('progressTrackingText').innerText = 'Loading...';
+                if (data.fitnessData.savedWorkoutPlan && data.fitnessData.savedDietPlan) {
+                    // Display saved plans if they exist
+                    document.getElementById('fitnessPlanText').innerText = data.fitnessData.savedWorkoutPlan;
+                    document.getElementById('dietPlanText').innerText = data.fitnessData.savedDietPlan;
+                    document.getElementById('progressTrackingText').innerText = 'Progress tracking data will appear here...';
+                } else {
+                    // Generate and save plans if they do not exist
+                    document.getElementById('fitnessPlanText').innerText = 'Loading...';
+                    document.getElementById('dietPlanText').innerText = 'Loading...';
+                    document.getElementById('progressTrackingText').innerText = 'Loading...';
 
-                getDietPlan(data.fitnessData.goal, data.fitnessData.weight, data.fitnessData.gender, data.fitnessData.age, data.fitnessData.fitnessLevel);
-                getWorkoutRoutine(data.fitnessData.bodyType, data.fitnessData.exerciseDays, data.fitnessData.fitnessLevel);
-                trackProgress(data.fitnessData.goal, data.fitnessData.weight, data.fitnessData.gender, data.fitnessData.age, data.fitnessData.fitnessLevel);
+                    generateAndSavePlans(data.fitnessData);
+                }
             } else {
                 // If no fitness data, show the fitness form
                 document.getElementById('fitnessFormDiv').style.display = 'block';
@@ -118,10 +124,8 @@ document.getElementById('fitnessForm').addEventListener('submit', function(event
             document.getElementById('fitnessFormDiv').style.display = 'none';
             document.getElementById('planPreviews').style.display = 'block';
 
-            // Automatically get diet plan, workout routine, etc.
-            getDietPlan(goal, weight, gender, age, fitnessLevel);
-            getWorkoutRoutine(bodyType, exerciseDays, fitnessLevel);
-            trackProgress(goal, weight, gender, age, fitnessLevel);
+            // Generate and save plans after saving fitness data
+            generateAndSavePlans({ goal, bodyType, weight, exerciseDays, age, gender, fitnessLevel });
         } else {
             document.getElementById('response').innerText = 'Error: ' + data.message;
         }
@@ -131,10 +135,42 @@ document.getElementById('fitnessForm').addEventListener('submit', function(event
     });
 });
 
+function generateAndSavePlans(fitnessData) {
+    // Generate diet plan
+    getDietPlan(fitnessData.goal, fitnessData.weight, fitnessData.gender, fitnessData.age, fitnessData.fitnessLevel)
+        .then(dietPlan => {
+            document.getElementById('dietPlanText').innerText = dietPlan;
+
+            // Generate workout routine
+            return getWorkoutRoutine(fitnessData.bodyType, fitnessData.exerciseDays, fitnessData.fitnessLevel);
+        })
+        .then(workoutRoutine => {
+            document.getElementById('fitnessPlanText').innerText = workoutRoutine;
+
+            // Save both plans to the server
+            return fetch('http://localhost:8080/saveGeneratedPlans', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ dietPlan: document.getElementById('dietPlanText').innerText, workoutRoutine: document.getElementById('fitnessPlanText').innerText })
+            });
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                console.error('Error saving generated plans:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error generating or saving plans:', error.message);
+        });
+}
+
 function getDietPlan(goal, weight, gender, age, fitnessLevel) {
     const query = `${goal} diet plan for ${gender}, ${age} years old, ${weight} lbs, ${fitnessLevel} fitness level`;
 
-    fetch('http://localhost:8080/getDietPlan', {
+    return fetch('http://localhost:8080/getDietPlan', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -142,18 +178,17 @@ function getDietPlan(goal, weight, gender, age, fitnessLevel) {
         body: JSON.stringify({ query })
     })
     .then(response => response.json())
-    .then(data => {
-        document.getElementById('dietPlanText').innerText = data.dietPlan || 'Diet plan not available.';
-    })
+    .then(data => data.dietPlan || 'Diet plan not available.')
     .catch(error => {
-        document.getElementById('dietPlanText').innerText = 'Error fetching diet plan: ' + error.message;
+        console.error('Error fetching diet plan:', error.message);
+        return 'Error fetching diet plan.';
     });
 }
 
 function getWorkoutRoutine(bodyType, exerciseDays, fitnessLevel) {
     const query = `workout routine for ${bodyType}, ${exerciseDays} days per week, ${fitnessLevel} fitness level`;
 
-    fetch('http://localhost:8080/getWorkoutRoutine', {
+    return fetch('http://localhost:8080/getWorkoutRoutine', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -161,11 +196,10 @@ function getWorkoutRoutine(bodyType, exerciseDays, fitnessLevel) {
         body: JSON.stringify({ query })
     })
     .then(response => response.json())
-    .then(data => {
-        document.getElementById('fitnessPlanText').innerText = data.workoutRoutine || 'Workout routine not available.';
-    })
+    .then(data => data.workoutRoutine || 'Workout routine not available.')
     .catch(error => {
-        document.getElementById('fitnessPlanText').innerText = 'Error fetching workout routine: ' + error.message;
+        console.error('Error fetching workout routine:', error.message);
+        return 'Error fetching workout routine.';
     });
 }
 

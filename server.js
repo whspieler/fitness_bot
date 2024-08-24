@@ -38,7 +38,9 @@ const userSchema = new mongoose.Schema({
         exerciseDays: Number,
         age: Number,
         gender: String,
-        fitnessLevel: String
+        fitnessLevel: String,
+        savedWorkoutPlan: String,
+        savedDietPlan: String
     }
 });
 
@@ -112,6 +114,25 @@ app.post('/saveFitnessData', async (req, res) => {
         res.json({ message: 'Fitness data saved successfully', success: true });
     } catch (error) {
         res.status(500).json({ message: 'Failed to save fitness data' });
+    }
+});
+
+app.post('/saveGeneratedPlans', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    try {
+        const { dietPlan, workoutRoutine } = req.body;
+        const user = await User.findById(req.session.userId);
+
+        user.fitnessData.savedDietPlan = dietPlan;
+        user.fitnessData.savedWorkoutPlan = workoutRoutine;
+        await user.save();
+
+        res.json({ message: 'Generated plans saved successfully', success: true });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to save generated plans' });
     }
 });
 
