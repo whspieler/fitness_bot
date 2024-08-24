@@ -6,6 +6,7 @@ function toggleContent(id) {
         content.style.display = "none";
     }
 }
+
 // Handle login form submission
 document.getElementById('loginForm').addEventListener('submit', function(event) {
     event.preventDefault(); 
@@ -31,20 +32,24 @@ document.getElementById('loginForm').addEventListener('submit', function(event) 
     .then(data => {
         document.getElementById('loginResponse').innerText = data.message;
         if (data.success) {
-            document.getElementById('fitnessFormDiv').style.display = 'block';
             document.getElementById('loginDiv').style.display = 'none';
             document.getElementById('registerDiv').style.display = 'none';
             document.getElementById('intro').style.display = 'none';
 
-            // Prefill fitness form with existing data
-            if (data.fitnessData) {
-                document.getElementById('goal').value = data.fitnessData.goal || '';
-                document.getElementById('bodyType').value = data.fitnessData.bodyType || '';
-                document.getElementById('weight').value = data.fitnessData.weight || '';
-                document.getElementById('exerciseDays').value = data.fitnessData.exerciseDays || '';
-                document.getElementById('age').value = data.fitnessData.age || '';
-                document.getElementById('gender').value = data.fitnessData.gender || '';
-                document.getElementById('fitnessLevel').value = data.fitnessData.fitnessLevel || '';
+            if (data.fitnessData && Object.keys(data.fitnessData).length > 0) {
+                // If fitness data exists, show plan previews directly
+                document.getElementById('planPreviews').style.display = 'block';
+
+                document.getElementById('fitnessPlanText').innerText = 'Loading...';
+                document.getElementById('dietPlanText').innerText = 'Loading...';
+                document.getElementById('progressTrackingText').innerText = 'Loading...';
+
+                getDietPlan(data.fitnessData.goal, data.fitnessData.weight, data.fitnessData.gender, data.fitnessData.age, data.fitnessData.fitnessLevel);
+                getWorkoutRoutine(data.fitnessData.bodyType, data.fitnessData.exerciseDays, data.fitnessData.fitnessLevel);
+                trackProgress(data.fitnessData.goal, data.fitnessData.weight, data.fitnessData.gender, data.fitnessData.age, data.fitnessData.fitnessLevel);
+            } else {
+                // If no fitness data, show the fitness form
+                document.getElementById('fitnessFormDiv').style.display = 'block';
             }
         }
     })
@@ -71,7 +76,7 @@ document.getElementById('registerForm').addEventListener('submit', function(even
     .then(data => {
         document.getElementById('registerResponse').innerText = data.message;
         if (data.success) {
-            document.getElementById('loginResponse').innerText = 'You can now log in with your new account.';
+            document.getElementById('loginResponse').innerText = 'Registration successful. Please log in with your new account.';
             document.getElementById('registerDiv').style.display = 'none';
             document.getElementById('loginDiv').style.display = 'block';
         }

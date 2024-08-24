@@ -92,7 +92,7 @@ app.post('/login', async (req, res) => {
         req.session.userId = user._id;
         res.json({ message: 'Login successful', success: true, fitnessData: user.fitnessData });
     } catch (error) {
-        console.error('Login error:', error); // Log the actual error
+        console.error('Login error:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });
@@ -227,6 +227,7 @@ async function callNutritionixAPI(query) {
         if (data.foods && data.foods.length > 0) {
             const food = data.foods[0];
             return `Food: ${food.food_name}, Calories: ${food.nf_calories}, Protein: ${food.nf_protein}g, Fat: ${food.nf_total_fat}g, Carbs: ${food.nf_total_carbohydrate}g`;
+
         } else {
             return 'No nutritional information found.';
         }
