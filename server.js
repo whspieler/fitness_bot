@@ -5,24 +5,11 @@ const bodyParser = require('body-parser');
 const session = require('express-session');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const { CloudAdapter, MemoryStorage, ConversationState, UserState } = require('botbuilder');
-const restify = require('restify');
-const Groq = require('groq-sdk'); // Import the Groq SDK
-
-// Check for required environment variables
-const requiredEnvVars = ['MICROSOFT_APP_ID', 'MICROSOFT_APP_PASSWORD', 'GROQ_API_KEY', 'NUTRITIONIX_APP_ID', 'NUTRITIONIX_APP_KEY'];
-requiredEnvVars.forEach(varName => {
-    if (!process.env[varName]) {
-        console.error(`Environment variable ${varName} is not set.`);
-        process.exit(1);
-    }
-});
+const Groq = require('groq-sdk');
 
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/fitnessBot')
-    .then(() => {
-        console.log('Connected to MongoDB');
-    })
+    .then(() => console.log('Connected to MongoDB'))
     .catch(error => {
         console.error('Error connecting to MongoDB:', error);
         process.exit(1);
@@ -56,7 +43,6 @@ app.use(cors({
 }));
 
 app.use(express.static('public'));
-
 app.use(bodyParser.json());
 app.use(session({
     secret: 'your-secret-key',
@@ -136,10 +122,55 @@ app.post('/saveGeneratedPlans', async (req, res) => {
     }
 });
 
-// Initialize Groq SDK
+app.post('/chatbot', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    try {
+        const { message } = req.body;
+        const user = await User.findById(req.session.userId);
+
+        let updatedDietPlan = null;
+        let updatedWorkoutPlan = null;
+
+        // Generate a new diet plan or workout plan based on user input
+        if (message.toLowerCase().includes('diet') || message.toLowerCase().includes('eat')) {
+            updatedDietPlan = await callGroqAPI(`Generate a new diet plan considering: ${message}`);
+            user.fitnessData.savedDietPlan = updatedDietPlan;
+        } 
+        
+        if (message.toLowerCase().includes('workout') || message.toLowerCase().includes('exercise')) {
+            updatedWorkoutPlan = await callGroqAPI(`Generate a new workout plan considering: ${message}`);
+            user.fitnessData.savedWorkoutPlan = updatedWorkoutPlan;
+        }
+
+        await user.save();
+        res.json({
+            response: 'Your preferences have been updated and a new plan has been generated.',
+            updatedDietPlan: user.fitnessData.savedDietPlan,
+            updatedWorkoutPlan: user.fitnessData.savedWorkoutPlan
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to process chatbot request' });
+    }
+});
+
+app.get('/getPlans', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    try {
+        const user = await User.findById(req.session.userId);
+        res.json({ success: true, fitnessData: user.fitnessData });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch plans' });
+    }
+});
+
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-// Function to call Groq API using SDK
 async function callGroqAPI(prompt) {
     try {
         const chatCompletion = await groq.chat.completions.create({
@@ -156,105 +187,6 @@ async function callGroqAPI(prompt) {
     } catch (error) {
         console.error('Error calling Groq API:', error);
         return 'Sorry, something went wrong.';
-    }
-}
-
-// Endpoint to get diet plan
-app.post('/getDietPlan', async (req, res) => {
-    const { query } = req.body;
-    try {
-        const response = await callGroqAPI(`Generate a diet plan for ${query}`);
-        res.json({ dietPlan: response });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch diet plan' });
-    }
-});
-
-// Endpoint to get workout routine
-app.post('/getWorkoutRoutine', async (req, res) => {
-    const { query } = req.body;
-    try {
-        const response = await callGroqAPI(`Generate a workout routine for ${query}`);
-        res.json({ workoutRoutine: response });
-    } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch workout routine' });
-    }
-});
-
-// Bot Integration
-const adapter = new CloudAdapter({
-    appId: process.env.MICROSOFT_APP_ID,
-    appPassword: process.env.MICROSOFT_APP_PASSWORD
-});
-
-const memoryStorage = new MemoryStorage();
-const conversationState = new ConversationState(memoryStorage);
-const userState = new UserState(memoryStorage);
-
-class FitnessBot {
-    async onTurn(turnContext) {
-        if (turnContext.activity.type === 'message') {
-            const userInput = turnContext.activity.text.toLowerCase();
-
-            try {
-                if (userInput.includes('workout') || userInput.includes('exercise')) {
-                    const response = await callGroqAPI(`Generate a workout plan for ${userInput}`);
-                    await turnContext.sendActivity(response);
-                } else if (userInput.includes('diet') || userInput.includes('meal')) {
-                    const response = await callGroqAPI(`Generate a diet plan for ${userInput}`);
-                    await turnContext.sendActivity(response);
-                } else if (userInput.includes('food') || userInput.includes('calories')) {
-                    const response = await callNutritionixAPI(userInput);
-                    await turnContext.sendActivity(response);
-                } else {
-                    await turnContext.sendActivity('Sorry, I didn\'t understand that. Can you please specify if you want workout, diet, or nutritional information?');
-                }
-            } catch (error) {
-                await turnContext.sendActivity('Sorry, something went wrong while processing your request.');
-                console.error('Error in bot handling:', error);
-            }
-        }
-    }
-}
-
-const bot = new FitnessBot();
-
-const restifyServer = restify.createServer();
-restifyServer.listen(3978, () => {
-    console.log(`\n${restifyServer.name} listening to ${restifyServer.url}`);
-});
-
-restifyServer.post('/api/messages', (req, res, next) => {
-    adapter.processActivity(req, res, async (context) => {
-        await bot.onTurn(context);
-        next(); // Ensure the next middleware in the chain is called
-    });
-});
-
-// Function to call Nutritionix API
-async function callNutritionixAPI(query) {
-    try {
-        const response = await axios.get('https://trackapi.nutritionix.com/v2/natural/nutrients', {
-            params: {
-                query: query
-            },
-            headers: {
-                'x-app-id': process.env.NUTRITIONIX_APP_ID,
-                'x-app-key': process.env.NUTRITIONIX_APP_KEY
-            }
-        });
-
-        const data = response.data;
-        if (data.foods && data.foods.length > 0) {
-            const food = data.foods[0];
-            return `Food: ${food.food_name}, Calories: ${food.nf_calories}, Protein: ${food.nf_protein}g, Fat: ${food.nf_total_fat}g, Carbs: ${food.nf_total_carbohydrate}g`;
-
-        } else {
-            return 'No nutritional information found.';
-        }
-    } catch (error) {
-        console.error('Error calling Nutritionix API:', error);
-        return 'Sorry, something went wrong with the nutrition information.';
     }
 }
 

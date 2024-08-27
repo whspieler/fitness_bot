@@ -1,12 +1,3 @@
-function toggleContent(id) {
-    var content = document.getElementById(id);
-    if (content.style.display === "none" || content.style.display === "") {
-        content.style.display = "block";
-    } else {
-        content.style.display = "none";
-    }
-}
-
 // Handle login form submission
 document.getElementById('loginForm').addEventListener('submit', function(event) {
     event.preventDefault(); 
@@ -21,14 +12,7 @@ document.getElementById('loginForm').addEventListener('submit', function(event) 
         },
         body: JSON.stringify({ username, password })
     })
-    .then(response => {
-        if (!response.ok) {
-            return response.json().then(data => {
-                throw new Error(data.message || 'Login failed');
-            });
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         document.getElementById('loginResponse').innerText = data.message;
         if (data.success) {
@@ -37,24 +21,8 @@ document.getElementById('loginForm').addEventListener('submit', function(event) 
             document.getElementById('intro').style.display = 'none';
 
             if (data.fitnessData && Object.keys(data.fitnessData).length > 0) {
-                // If fitness data exists, show plan previews directly
                 document.getElementById('planPreviews').style.display = 'block';
-
-                if (data.fitnessData.savedWorkoutPlan && data.fitnessData.savedDietPlan) {
-                    // Display saved plans if they exist
-                    document.getElementById('fitnessPlanText').innerText = data.fitnessData.savedWorkoutPlan;
-                    document.getElementById('dietPlanText').innerText = data.fitnessData.savedDietPlan;
-                    document.getElementById('progressTrackingText').innerText = 'Progress tracking data will appear here...';
-                } else {
-                    // Generate and save plans if they do not exist
-                    document.getElementById('fitnessPlanText').innerText = 'Loading...';
-                    document.getElementById('dietPlanText').innerText = 'Loading...';
-                    document.getElementById('progressTrackingText').innerText = 'Loading...';
-
-                    generateAndSavePlans(data.fitnessData);
-                }
             } else {
-                // If no fitness data, show the fitness form
                 document.getElementById('fitnessFormDiv').style.display = 'block';
             }
         }
@@ -124,7 +92,6 @@ document.getElementById('fitnessForm').addEventListener('submit', function(event
             document.getElementById('fitnessFormDiv').style.display = 'none';
             document.getElementById('planPreviews').style.display = 'block';
 
-            // Generate and save plans after saving fitness data
             generateAndSavePlans({ goal, bodyType, weight, exerciseDays, age, gender, fitnessLevel });
         } else {
             document.getElementById('response').innerText = 'Error: ' + data.message;
@@ -135,26 +102,48 @@ document.getElementById('fitnessForm').addEventListener('submit', function(event
     });
 });
 
+// Function to handle chat input for fitness or diet plan
+function handleChatInput(planType) {
+    const chatInput = document.getElementById('chatInput').value;
+
+    fetch('http://localhost:8080/chatbot', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message: chatInput })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('chatResponse').innerText = data.response;
+
+        // Update the plan content directly in the displayed plan content area
+        if (planType === 'dietPlan' && data.updatedDietPlan) {
+            document.getElementById('planContent').innerText = data.updatedDietPlan;
+        }
+
+        if (planType === 'fitnessPlan' && data.updatedWorkoutPlan) {
+            document.getElementById('planContent').innerText = data.updatedWorkoutPlan;
+        }
+    })
+    .catch(error => {
+        document.getElementById('chatResponse').innerText = 'Error processing request: ' + error.message;
+    });
+}
+
 function generateAndSavePlans(fitnessData) {
-    // Generate diet plan
     getDietPlan(fitnessData.goal, fitnessData.weight, fitnessData.gender, fitnessData.age, fitnessData.fitnessLevel)
         .then(dietPlan => {
-            document.getElementById('dietPlanText').innerText = dietPlan;
-
-            // Generate workout routine
-            return getWorkoutRoutine(fitnessData.bodyType, fitnessData.exerciseDays, fitnessData.fitnessLevel);
-        })
-        .then(workoutRoutine => {
-            document.getElementById('fitnessPlanText').innerText = workoutRoutine;
-
-            // Save both plans to the server
-            return fetch('http://localhost:8080/saveGeneratedPlans', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ dietPlan: document.getElementById('dietPlanText').innerText, workoutRoutine: document.getElementById('fitnessPlanText').innerText })
-            });
+            return getWorkoutRoutine(fitnessData.bodyType, fitnessData.exerciseDays, fitnessData.fitnessLevel)
+                .then(workoutRoutine => {
+                    return fetch('http://localhost:8080/saveGeneratedPlans', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ dietPlan, workoutRoutine })
+                    });
+                });
         })
         .then(response => response.json())
         .then(data => {
@@ -223,24 +212,57 @@ function trackProgress(goal, weight, gender, age, fitnessLevel) {
 function viewPlan(planType) {
     const planTitle = document.getElementById('planTitle');
     const planContent = document.getElementById('planContent');
+    const chatPrompt = document.getElementById('chatPrompt');
+    const chatInput = document.getElementById('chatInput');
+    const sendChatButton = document.getElementById('sendChatButton');
 
     switch(planType) {
         case 'fitnessPlan':
             planTitle.innerText = 'Fitness Plan';
-            planContent.innerText = document.getElementById('fitnessPlanText').innerText;
+            fetchCurrentPlanContent('fitnessPlan');
+            chatPrompt.innerText = 'Please let me know if you would like me to make any modifications to your workout routine:';
+            sendChatButton.onclick = function() { handleChatInput('fitnessPlan'); };
             break;
         case 'dietPlan':
             planTitle.innerText = 'Diet Plan';
-            planContent.innerText = document.getElementById('dietPlanText').innerText;
+            fetchCurrentPlanContent('dietPlan');
+            chatPrompt.innerText = 'Please let me know if you would like me to make any modifications to your diet plan:';
+            sendChatButton.onclick = function() { handleChatInput('dietPlan'); };
             break;
         case 'progressTracking':
             planTitle.innerText = 'Progress Tracking';
-            planContent.innerText = document.getElementById('progressTrackingText').innerText;
+            planContent.innerText = 'Progress tracking data will appear here...';
+            chatPrompt.innerText = '';
+            chatInput.style.display = 'none';
+            sendChatButton.style.display = 'none';
             break;
     }
 
     document.getElementById('planPreviews').style.display = 'none';
     document.getElementById('planDetails').style.display = 'block';
+    document.getElementById('chatbotDiv').style.display = planType === 'progressTracking' ? 'none' : 'block';
+    chatInput.style.display = planType === 'progressTracking' ? 'none' : 'block';
+    sendChatButton.style.display = planType === 'progressTracking' ? 'none' : 'block';
+}
+
+function fetchCurrentPlanContent(planType) {
+    fetch('http://localhost:8080/getPlans', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (planType === 'fitnessPlan') {
+                document.getElementById('planContent').innerText = data.fitnessData.savedWorkoutPlan || 'No workout plan available.';
+            } else if (planType === 'dietPlan') {
+                document.getElementById('planContent').innerText = data.fitnessData.savedDietPlan || 'No diet plan available.';
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching plans:', error.message);
+    });
 }
 
 function backToPreviews() {
