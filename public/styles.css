@@ -1,6 +1,6 @@
 body {
-    font-family: 'Arial', sans-serif;
-    background-color: #f0f0f0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f4f4;
     margin: 0;
     padding: 0;
     display: flex;
@@ -14,15 +14,14 @@ body {
     background-color: #ffffff;
     padding: 30px;
     border-radius: 12px;
-    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
     width: 100%;
-    max-width: 900px; /* Adjusted max-width for side-by-side layout */
+    max-width: 900px;
     box-sizing: border-box;
     overflow-y: auto;
     max-height: 90vh;
 }
 
-/* New container for the plan sections */
 .plan-container {
     display: flex;
     justify-content: space-between;
@@ -34,22 +33,22 @@ body {
     background-color: #ffffff;
     padding: 20px;
     border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    width: 30%; /* Each section takes up 30% of the container */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    width: 30%;
     box-sizing: border-box;
     text-align: center;
-    min-width: 200px; /* Ensure sections don't become too narrow */
+    min-width: 200px;
 }
 
 h1 {
-    color: #333;
-    font-size: 2.5em; /* Increased font size for the title */
+    color: #2c3e50;
+    font-size: 2.5em;
     text-align: center;
     margin-bottom: 20px;
 }
 
 h2 {
-    color: #333;
+    color: #34495e;
     font-size: 1.8em;
     margin-bottom: 15px;
     text-align: center;
@@ -74,7 +73,7 @@ label {
     font-size: 1.1em;
 }
 
-input, select {
+input, select, textarea {
     padding: 12px;
     border: 1px solid #ccc;
     border-radius: 6px;
@@ -84,7 +83,7 @@ input, select {
     transition: border-color 0.3s ease;
 }
 
-input:focus, select:focus {
+input:focus, select:focus, textarea:focus {
     border-color: #007bff;
     outline: none;
 }
@@ -127,24 +126,25 @@ button:hover {
     text-decoration: underline;
 }
 
-/* New styles for plan previews and details */
 .plan-preview {
-    padding: 10px;
-    margin-bottom: 10px;
-    background-color: #e7e7e7;
-    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #ecf0f1;
+    border-radius: 8px;
     cursor: pointer;
-    border: 1px solid #ccc;
-    transition: background-color 0.3s ease;
+    border: 1px solid #bdc3c7;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    text-align: center;
 }
 
 .plan-preview:hover {
     background-color: #d7d7d7;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .view-button {
     background-color: #28a745;
-    padding: 10px;
+    padding: 12px;
     border: none;
     border-radius: 6px;
     color: #fff;
@@ -160,7 +160,7 @@ button:hover {
 
 .back-button {
     background-color: #dc3545;
-    padding: 10px;
+    padding: 12px;
     border: none;
     border-radius: 6px;
     color: #fff;
@@ -176,9 +176,10 @@ button:hover {
 
 p {
     color: #666;
+    font-size: 1em;
+    line-height: 1.5;
 }
 
-/* Media Queries for Responsive Design */
 @media (max-width: 768px) {
     .container {
         max-width: 95%; 

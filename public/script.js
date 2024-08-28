@@ -1,6 +1,7 @@
-// Handle login form submission
+let progressChart;
+
 document.getElementById('loginForm').addEventListener('submit', function(event) {
-    event.preventDefault(); 
+    event.preventDefault();
 
     const username = document.getElementById('loginUsername').value;
     const password = document.getElementById('loginPassword').value;
@@ -25,6 +26,10 @@ document.getElementById('loginForm').addEventListener('submit', function(event) 
             } else {
                 document.getElementById('fitnessFormDiv').style.display = 'block';
             }
+
+            if (data.progressData && data.progressData.length > 0) {
+                updateProgressChart(data.progressData);
+            }
         }
     })
     .catch(error => {
@@ -32,9 +37,8 @@ document.getElementById('loginForm').addEventListener('submit', function(event) 
     });
 });
 
-// Handle registration form submission
 document.getElementById('registerForm').addEventListener('submit', function(event) {
-    event.preventDefault(); 
+    event.preventDefault();
 
     const username = document.getElementById('registerUsername').value;
     const password = document.getElementById('registerPassword').value;
@@ -60,14 +64,12 @@ document.getElementById('registerForm').addEventListener('submit', function(even
     });
 });
 
-// Handle register link click to switch to registration form
 document.getElementById('registerLink').addEventListener('click', function(event) {
     event.preventDefault();
     document.getElementById('loginDiv').style.display = 'none';
     document.getElementById('registerDiv').style.display = 'block';
 });
 
-// Handle fitness form submission
 document.getElementById('fitnessForm').addEventListener('submit', function(event) {
     event.preventDefault();
 
@@ -102,7 +104,31 @@ document.getElementById('fitnessForm').addEventListener('submit', function(event
     });
 });
 
-// Function to handle chat input for fitness or diet plan
+document.getElementById('progressTrackingForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+
+    const currentWeight = document.getElementById('currentWeight').value;
+    const workoutsCompleted = document.getElementById('workoutsCompleted').value;
+
+    fetch('http://localhost:8080/trackProgress', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ currentWeight, workoutsCompleted })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('progressResponse').innerText = data.message;
+        if (data.success) {
+            updateProgressChart(data.progressData);
+        }
+    })
+    .catch(error => {
+        document.getElementById('progressResponse').innerText = 'Error updating progress: ' + error.message;
+    });
+});
+
 function handleChatInput(planType) {
     const chatInput = document.getElementById('chatInput').value;
 
@@ -117,7 +143,6 @@ function handleChatInput(planType) {
     .then(data => {
         document.getElementById('chatResponse').innerText = data.response;
 
-        // Update the plan content directly in the displayed plan content area
         if (planType === 'dietPlan' && data.updatedDietPlan) {
             document.getElementById('planContent').innerText = data.updatedDietPlan;
         }
@@ -192,29 +217,14 @@ function getWorkoutRoutine(bodyType, exerciseDays, fitnessLevel) {
     });
 }
 
-function trackProgress(goal, weight, gender, age, fitnessLevel) {
-    fetch('http://localhost:8080/trackProgress', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ goal, weight, gender, age, fitnessLevel })
-    })
-    .then(response => response.json())
-    .then(data => {
-        document.getElementById('progressTrackingText').innerText = data.progress || 'No progress data available.';
-    })
-    .catch(error => {
-        document.getElementById('progressTrackingText').innerText = 'Error fetching progress: ' + error.message;
-    });
-}
-
 function viewPlan(planType) {
     const planTitle = document.getElementById('planTitle');
     const planContent = document.getElementById('planContent');
     const chatPrompt = document.getElementById('chatPrompt');
     const chatInput = document.getElementById('chatInput');
     const sendChatButton = document.getElementById('sendChatButton');
+
+    document.getElementById('progressTrackingFormDiv').style.display = 'none';
 
     switch(planType) {
         case 'fitnessPlan':
@@ -231,7 +241,15 @@ function viewPlan(planType) {
             break;
         case 'progressTracking':
             planTitle.innerText = 'Progress Tracking';
-            planContent.innerText = 'Progress tracking data will appear here...';
+            document.getElementById('progressTrackingFormDiv').style.display = 'block';
+            fetchProgressDataAndUpdateChart();
+            chatPrompt.innerText = '';
+            chatInput.style.display = 'none';
+            sendChatButton.style.display = 'none';
+            break;
+        case 'additionalResources':
+            planTitle.innerText = 'Additional Resources';
+            fetchAdditionalResources();
             chatPrompt.innerText = '';
             chatInput.style.display = 'none';
             sendChatButton.style.display = 'none';
@@ -240,9 +258,9 @@ function viewPlan(planType) {
 
     document.getElementById('planPreviews').style.display = 'none';
     document.getElementById('planDetails').style.display = 'block';
-    document.getElementById('chatbotDiv').style.display = planType === 'progressTracking' ? 'none' : 'block';
-    chatInput.style.display = planType === 'progressTracking' ? 'none' : 'block';
-    sendChatButton.style.display = planType === 'progressTracking' ? 'none' : 'block';
+    document.getElementById('chatbotDiv').style.display = planType === 'progressTracking' || planType === 'additionalResources' ? 'none' : 'block';
+    chatInput.style.display = planType === 'progressTracking' || planType === 'additionalResources' ? 'none' : 'block';
+    sendChatButton.style.display = planType === 'progressTracking' || planType === 'additionalResources' ? 'none' : 'block';
 }
 
 function fetchCurrentPlanContent(planType) {
@@ -263,6 +281,91 @@ function fetchCurrentPlanContent(planType) {
     .catch(error => {
         console.error('Error fetching plans:', error.message);
     });
+}
+
+function fetchProgressDataAndUpdateChart() {
+    fetch('http://localhost:8080/trackProgress', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.progressData) {
+            updateProgressChart(data.progressData);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching progress data:', error.message);
+    });
+}
+
+function fetchAdditionalResources() {
+    fetch('http://localhost:8080/getResources', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const resources = data.resources;
+            let contentHtml = '<h3>Workout Videos</h3><ul>';
+            resources.workoutVideos.forEach(video => {
+                contentHtml += `<li><iframe width="560" height="315" src="https://www.youtube.com/embed/${video.id.videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></li>`;
+            });
+            contentHtml += '</ul><h3>Recipe Videos</h3><ul>';
+            resources.recipeVideos.forEach(video => {
+                contentHtml += `<li><iframe width="560" height="315" src="https://www.youtube.com/embed/${video.id.videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></li>`;
+            });
+            contentHtml += '</ul>';
+            document.getElementById('planContent').innerHTML = contentHtml;
+        } else {
+            document.getElementById('planContent').innerText = 'No resources available at the moment.';
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching additional resources:', error.message);
+        document.getElementById('planContent').innerText = 'Failed to load additional resources.';
+    });
+}
+
+function displayProgressChart() {
+    const ctx = document.createElement('canvas');
+    ctx.id = 'progressChart';
+    document.getElementById('planContent').innerHTML = '';
+    document.getElementById('planContent').appendChild(ctx);
+
+    const config = {
+        type: 'line',
+        data: {
+            labels: [], 
+            datasets: [{
+                label: 'Weight (lbs)',
+                data: [], 
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        },
+        options: {}
+    };
+
+    if (progressChart) {
+        progressChart.destroy();
+    }
+
+    progressChart = new Chart(ctx, config);
+}
+
+function updateProgressChart(progressData) {
+    if (!progressChart) {
+        displayProgressChart(); 
+    }
+
+    const labels = progressData.map((entry, index) => `Week ${index + 1}`);
+    const data = progressData.map(entry => entry.weight);
+
+    progressChart.data.labels = labels;
+    progressChart.data.datasets[0].data = data;
+    progressChart.update();
 }
 
 function backToPreviews() {

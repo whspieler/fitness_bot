@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fitness Bot</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>Fitness Bot</h1>
         <p id="intro">Welcome to the Fitness Bot! Please log in to continue.</p>
 
-        <!-- Login Form -->
         <div id="loginDiv">
             <h2>Login</h2>
             <form id="loginForm">
@@ -27,7 +27,6 @@
             <div id="loginResponse"></div>
         </div>
 
-        <!-- Registration Form -->
         <div id="registerDiv" style="display:none;">
             <h2>Register</h2>
             <form id="registerForm">
@@ -42,7 +41,6 @@
             <div id="registerResponse"></div>
         </div>
 
-        <!-- Fitness Form -->
         <div id="fitnessFormDiv" style="display:none;">
             <h2>Fitness Form</h2>
             <form id="fitnessForm">
@@ -85,7 +83,6 @@
             </form>
         </div>
 
-        <!-- Plan Previews -->
         <div id="planPreviews" style="display:none;">
             <div class="plan-preview">
                 <h3>Fitness Plan</h3>
@@ -99,14 +96,31 @@
                 <h3>Progress Tracking</h3>
                 <button class="view-button" onclick="viewPlan('progressTracking')">View Progress</button>
             </div>
+            <div class="plan-preview">
+                <h3>Additional Resources</h3>
+                <button class="view-button" onclick="viewPlan('additionalResources')">View Resources</button>
+            </div>
         </div>
 
-        <!-- Plan Details -->
         <div id="planDetails" style="display:none;">
             <h2 id="planTitle"></h2>
-            <p id="planContent"></p>
+            <div id="planContent"></div>
             
-            <!-- Chatbot Section -->
+            <div id="progressTrackingFormDiv" style="display:none;">
+                <h2>Track Your Progress</h2>
+                <form id="progressTrackingForm">
+                    <label for="currentWeight">Current Weight (lbs):</label>
+                    <input type="number" id="currentWeight" name="currentWeight" step="0.1" required>
+
+                    <label for="workoutsCompleted">Workouts Completed This Week:</label>
+                    <input type="number" id="workoutsCompleted" name="workoutsCompleted" min="0" required>
+
+                    <button type="submit">Submit Progress</button>
+                </form>
+                <div id="progressResponse"></div>
+                <canvas id="progressChart"></canvas>
+            </div>
+
             <div id="chatbotDiv" style="display:none;">
                 <h3>Chat with Fitness Bot</h3>
                 <p id="chatPrompt"></p>
@@ -118,6 +132,7 @@
             <button class="back-button" onclick="backToPreviews()">Back to Previews</button>
         </div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
