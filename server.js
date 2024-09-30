@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const Groq = require('groq-sdk');
 const axios = require('axios');
 
+// Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/fitnessBot')
     .then(() => console.log('Connected to MongoDB'))
     .catch(error => {
@@ -15,6 +16,7 @@ mongoose.connect('mongodb://localhost:27017/fitnessBot')
         process.exit(1);
     });
 
+// Define Schemas
 const progressSchema = new mongoose.Schema({
     date: { type: Date, default: Date.now },
     weight: Number,
@@ -57,9 +59,9 @@ app.use(session({
     saveUninitialized: true
 }));
 
+// Registration endpoint
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
-
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const newUser = new User({ username, password: hashedPassword });
@@ -70,9 +72,9 @@ app.post('/register', async (req, res) => {
     }
 });
 
+// Login endpoint
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-
     try {
         const user = await User.findOne({ username });
         if (!user) {
@@ -85,6 +87,7 @@ app.post('/login', async (req, res) => {
         }
 
         req.session.userId = user._id;
+        req.session.currentSection = ''; // Initialize the current section (diet or workout)
         res.json({
             message: 'Login successful',
             success: true,
@@ -97,6 +100,18 @@ app.post('/login', async (req, res) => {
     }
 });
 
+// Endpoint to track which section the user is in (diet or workout)
+app.post('/setSection', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const { section } = req.body; // "dietPlan" or "fitnessPlan"
+    req.session.currentSection = section; // Set the current section
+    res.json({ message: `Section set to ${section}` });
+});
+
+// Save fitness data endpoint
 app.post('/saveFitnessData', async (req, res) => {
     if (!req.session.userId) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -115,6 +130,7 @@ app.post('/saveFitnessData', async (req, res) => {
     }
 });
 
+// Save generated plans endpoint
 app.post('/saveGeneratedPlans', async (req, res) => {
     if (!req.session.userId) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -134,6 +150,7 @@ app.post('/saveGeneratedPlans', async (req, res) => {
     }
 });
 
+// Chatbot for modifying diet and workout plans based on current section
 app.post('/chatbot', async (req, res) => {
     if (!req.session.userId) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -143,30 +160,65 @@ app.post('/chatbot', async (req, res) => {
         const { message } = req.body;
         const user = await User.findById(req.session.userId);
 
-        let updatedDietPlan = null;
-        let updatedWorkoutPlan = null;
+        // Collect user preferences and current section
+        const userContext = `
+        User's Preferences:
+        - Goal: ${user.fitnessData.goal || 'Not specified'}
+        - Body Type: ${user.fitnessData.bodyType || 'Not specified'}
+        - Weight: ${user.fitnessData.weight || 'Not specified'}
+        - Exercise Days: ${user.fitnessData.exerciseDays || 'Not specified'}
+        - Age: ${user.fitnessData.age || 'Not specified'}
+        - Gender: ${user.fitnessData.gender || 'Not specified'}
+        - Fitness Level: ${user.fitnessData.fitnessLevel || 'Not specified'}
+        
+        Existing Plans:
+        - Diet Plan: ${user.fitnessData.savedDietPlan || 'Not specified'}
+        - Workout Plan: ${user.fitnessData.savedWorkoutPlan || 'Not specified'}
+        `;
 
-        if (message.toLowerCase().includes('diet') || message.toLowerCase().includes('eat')) {
-            updatedDietPlan = await callGroqAPI(`Generate a new diet plan considering: ${message}`);
-            user.fitnessData.savedDietPlan = updatedDietPlan;
+        let updatedPlan = null;
+        const section = req.session.currentSection;
+
+        if (section === 'dietPlan') {
+            const dietPrompt = `${userContext}\nPlease update the diet plan based on the following request: ${message}`;
+            updatedPlan = await callGroqAPI(dietPrompt);
+            console.log('Diet Plan API Response:', updatedPlan);
+
+            if (!updatedPlan || updatedPlan.includes("error")) {
+                throw new Error('Failed to generate a valid diet plan.');
+            }
+
+            user.fitnessData.savedDietPlan = updatedPlan;
+
+        } else if (section === 'fitnessPlan') {
+            const workoutPrompt = `${userContext}\nPlease update the workout plan based on the following request: ${message}`;
+            updatedPlan = await callGroqAPI(workoutPrompt);
+            console.log('Workout Plan API Response:', updatedPlan);
+
+            if (!updatedPlan || updatedPlan.includes("error")) {
+                throw new Error('Failed to generate a valid workout plan.');
+            }
+
+            user.fitnessData.savedWorkoutPlan = updatedPlan;
+        } else {
+            return res.status(400).json({ message: 'Current section is not set. Unable to determine whether to update the diet or workout plan.' });
         }
 
-        if (message.toLowerCase().includes('workout') || message.toLowerCase().includes('exercise')) {
-            updatedWorkoutPlan = await callGroqAPI(`Generate a new workout plan considering: ${message}`);
-            user.fitnessData.savedWorkoutPlan = updatedWorkoutPlan;
-        }
-
+        // Save updated plan
         await user.save();
+
         res.json({
             response: 'Your preferences have been updated and a new plan has been generated.',
-            updatedDietPlan: user.fitnessData.savedDietPlan,
-            updatedWorkoutPlan: user.fitnessData.savedWorkoutPlan
+            updatedPlan: section === 'dietPlan' ? user.fitnessData.savedDietPlan : user.fitnessData.savedWorkoutPlan
         });
+
     } catch (error) {
-        res.status(500).json({ message: 'Failed to process chatbot request' });
+        console.error('Error processing chatbot request:', error.message);
+        res.status(500).json({ message: 'Failed to process chatbot request: ' + error.message });
     }
 });
 
+// Get current plans endpoint
 app.get('/getPlans', async (req, res) => {
     if (!req.session.userId) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -180,6 +232,33 @@ app.get('/getPlans', async (req, res) => {
     }
 });
 
+// /getDietPlan endpoint
+app.post('/getDietPlan', async (req, res) => {
+    const { query } = req.body;
+
+    try {
+        const dietPlan = await callGroqAPI(`Generate a diet plan: ${query}`);
+        res.json({ dietPlan });
+    } catch (error) {
+        console.error('Error fetching diet plan:', error);
+        res.status(500).json({ message: 'Failed to fetch diet plan' });
+    }
+});
+
+// /getWorkoutRoutine endpoint
+app.post('/getWorkoutRoutine', async (req, res) => {
+    const { query } = req.body;
+
+    try {
+        const workoutRoutine = await callGroqAPI(`Generate a workout routine: ${query}`);
+        res.json({ workoutRoutine });
+    } catch (error) {
+        console.error('Error fetching workout routine:', error);
+        res.status(500).json({ message: 'Failed to fetch workout routine' });
+    }
+});
+
+// Track progress endpoint
 app.post('/trackProgress', async (req, res) => {
     if (!req.session.userId) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -200,6 +279,7 @@ app.post('/trackProgress', async (req, res) => {
     }
 });
 
+// Improved logic for YouTube video search based on the plan
 app.get('/getResources', async (req, res) => {
     if (!req.session.userId) {
         return res.status(401).json({ message: 'Unauthorized' });
@@ -211,32 +291,29 @@ app.get('/getResources', async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const fitnessPlanKeywords = user.fitnessData.savedWorkoutPlan.split(' ').slice(0, 3).join(' ');
-        const dietPlanKeywords = user.fitnessData.savedDietPlan.split(' ').slice(0, 3).join(' ');
+        // Extract key exercises and meals from user's plans
+        const workoutPlan = user.fitnessData.savedWorkoutPlan || '';
+        const dietPlan = user.fitnessData.savedDietPlan || '';
+
+        const exercises = extractExercises(workoutPlan);
+        const meals = extractMeals(dietPlan);
 
         const youtubeApiKey = process.env.YOUTUBE_API_KEY;
 
-        const workoutVideosResponse = await axios.get('https://www.googleapis.com/youtube/v3/search', {
-            params: {
-                part: 'snippet',
-                maxResults: 5,
-                q: `${fitnessPlanKeywords} workout`,
-                key: youtubeApiKey
-            }
-        });
+        // Optimize YouTube searches to limit API calls and reduce quota usage
+        const limitedExerciseSearch = exercises.slice(0, 3);  // Limit to 3 exercises
+        const limitedMealSearch = meals.slice(0, 3);  // Limit to 3 meals
 
-        const dietVideosResponse = await axios.get('https://www.googleapis.com/youtube/v3/search', {
-            params: {
-                part: 'snippet',
-                maxResults: 5,
-                q: `${dietPlanKeywords} recipe`,
-                key: youtubeApiKey
-            }
-        });
+        // Search for videos concurrently for the limited set
+        const exerciseVideosPromises = limitedExerciseSearch.map(exercise => searchYouTube(exercise, youtubeApiKey, 'exercise guide'));
+        const mealVideosPromises = limitedMealSearch.map(meal => searchYouTube(meal, youtubeApiKey, 'recipe'));
+
+        const exerciseVideosResponses = await Promise.all(exerciseVideosPromises);
+        const mealVideosResponses = await Promise.all(mealVideosPromises);
 
         const resources = {
-            workoutVideos: workoutVideosResponse.data.items,
-            recipeVideos: dietVideosResponse.data.items
+            exerciseVideos: exerciseVideosResponses.map(resp => resp.data.items),
+            recipeVideos: mealVideosResponses.map(resp => resp.data.items)
         };
 
         res.json({ success: true, resources });
@@ -246,8 +323,40 @@ app.get('/getResources', async (req, res) => {
     }
 });
 
+// Helper function to extract exercises from workout plans
+function extractExercises(workoutPlan) {
+    const exercisePattern = /\b(?:bench press|tricep pushdown|pull-ups|squats|deadlifts|leg press|curls|planks|dumbbell fly|lateral raises|barbell rows|cable fly)\b/gi;
+    return [...new Set(workoutPlan.match(exercisePattern) || [])]; // Remove duplicates
+}
+
+// Helper function to extract meals from diet plans
+function extractMeals(dietPlan) {
+    const mealPattern = /\b(?:grilled chicken breast|grilled salmon|protein shake|egg whites|whole-grain toast|cottage cheese|quinoa|almonds|casein protein shake)\b/gi;
+    return [...new Set(dietPlan.match(mealPattern) || [])]; // Remove duplicates
+}
+
+// Helper function to perform YouTube search for given query
+async function searchYouTube(query, youtubeApiKey, type) {
+    try {
+        const searchQuery = `${query} ${type}`;
+        return await axios.get('https://www.googleapis.com/youtube/v3/search', {
+            params: {
+                part: 'snippet',
+                maxResults: 2,  // Reduce max results to conserve quota
+                q: searchQuery,
+                key: youtubeApiKey
+            }
+        });
+    } catch (error) {
+        console.error(`Error searching YouTube for ${query}:`, error);
+        throw error;
+    }
+}
+
+// Initialize Groq API
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
+// Function to call the Groq API for generating plans
 async function callGroqAPI(prompt) {
     try {
         const chatCompletion = await groq.chat.completions.create({

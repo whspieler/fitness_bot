@@ -129,6 +129,16 @@ document.getElementById('progressTrackingForm').addEventListener('submit', funct
     });
 });
 
+function setSection(section) {
+    return fetch('http://localhost:8080/setSection', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ section })
+    });
+}
+
 function handleChatInput(planType) {
     const chatInput = document.getElementById('chatInput').value;
 
@@ -143,12 +153,12 @@ function handleChatInput(planType) {
     .then(data => {
         document.getElementById('chatResponse').innerText = data.response;
 
-        if (planType === 'dietPlan' && data.updatedDietPlan) {
-            document.getElementById('planContent').innerText = data.updatedDietPlan;
+        if (planType === 'dietPlan' && data.updatedPlan) {
+            document.getElementById('planContent').innerText = data.updatedPlan;
         }
 
-        if (planType === 'fitnessPlan' && data.updatedWorkoutPlan) {
-            document.getElementById('planContent').innerText = data.updatedWorkoutPlan;
+        if (planType === 'fitnessPlan' && data.updatedPlan) {
+            document.getElementById('planContent').innerText = data.updatedPlan;
         }
     })
     .catch(error => {
@@ -226,6 +236,16 @@ function viewPlan(planType) {
 
     document.getElementById('progressTrackingFormDiv').style.display = 'none';
 
+    planContent.innerHTML = '';
+    chatResponse.innerText = ''; 
+    chatInput.value = '';
+
+    fetch('http://localhost:8080/setSection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: planType })
+    });
+
     switch(planType) {
         case 'fitnessPlan':
             planTitle.innerText = 'Fitness Plan';
@@ -240,9 +260,8 @@ function viewPlan(planType) {
             sendChatButton.onclick = function() { handleChatInput('dietPlan'); };
             break;
         case 'progressTracking':
-            planTitle.innerText = 'Progress Tracking';
+            planTitle.innerText = 'Track Your Progress';
             document.getElementById('progressTrackingFormDiv').style.display = 'block';
-            fetchProgressDataAndUpdateChart();
             chatPrompt.innerText = '';
             chatInput.style.display = 'none';
             sendChatButton.style.display = 'none';
@@ -309,13 +328,38 @@ function fetchAdditionalResources() {
         if (data.success) {
             const resources = data.resources;
             let contentHtml = '<h3>Workout Videos</h3><ul>';
-            resources.workoutVideos.forEach(video => {
-                contentHtml += `<li><iframe width="560" height="315" src="https://www.youtube.com/embed/${video.id.videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></li>`;
-            });
+            const displayedVideoIds = new Set(); // Track displayed video IDs
+
+            // Check for available workout videos and iterate through the nested arrays
+            if (resources.exerciseVideos && resources.exerciseVideos.length > 0) {
+                resources.exerciseVideos.forEach(videoArray => {
+                    videoArray.forEach(video => {
+                        if (video.id && video.id.videoId && !displayedVideoIds.has(video.id.videoId)) {
+                            contentHtml += `<li><iframe width="560" height="315" src="https://www.youtube.com/embed/${video.id.videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></li>`;
+                            displayedVideoIds.add(video.id.videoId); // Add videoId to the set
+                        }
+                    });
+                });
+            } else {
+                contentHtml += '<li>No workout videos available.</li>';
+            }
+
             contentHtml += '</ul><h3>Recipe Videos</h3><ul>';
-            resources.recipeVideos.forEach(video => {
-                contentHtml += `<li><iframe width="560" height="315" src="https://www.youtube.com/embed/${video.id.videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></li>`;
-            });
+
+            // Check for available recipe videos and iterate through the nested arrays
+            if (resources.recipeVideos && resources.recipeVideos.length > 0) {
+                resources.recipeVideos.forEach(videoArray => {
+                    videoArray.forEach(video => {
+                        if (video.id && video.id.videoId && !displayedVideoIds.has(video.id.videoId)) {
+                            contentHtml += `<li><iframe width="560" height="315" src="https://www.youtube.com/embed/${video.id.videoId}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></li>`;
+                            displayedVideoIds.add(video.id.videoId); // Add videoId to the set
+                        }
+                    });
+                });
+            } else {
+                contentHtml += '<li>No recipe videos available.</li>';
+            }
+
             contentHtml += '</ul>';
             document.getElementById('planContent').innerHTML = contentHtml;
         } else {
@@ -328,6 +372,7 @@ function fetchAdditionalResources() {
     });
 }
 
+
 function displayProgressChart() {
     const ctx = document.createElement('canvas');
     ctx.id = 'progressChart';
@@ -337,10 +382,10 @@ function displayProgressChart() {
     const config = {
         type: 'line',
         data: {
-            labels: [], 
+            labels: [],
             datasets: [{
                 label: 'Weight (lbs)',
-                data: [], 
+                data: [],
                 borderColor: 'rgb(75, 192, 192)',
                 tension: 0.1
             }]
@@ -357,7 +402,7 @@ function displayProgressChart() {
 
 function updateProgressChart(progressData) {
     if (!progressChart) {
-        displayProgressChart(); 
+        displayProgressChart();
     }
 
     const labels = progressData.map((entry, index) => `Week ${index + 1}`);
